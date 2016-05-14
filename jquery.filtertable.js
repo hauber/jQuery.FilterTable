@@ -169,7 +169,7 @@
                         table.find('tfoot').hide();
                     }
                     if (settings.ignoreColumns.length) {
-                        var tds = [];
+                        var tds;
                         if (settings.ignoreClass) {
                             all_tds = all_tds.not('.'+settings.ignoreClass);
                         }
@@ -187,7 +187,42 @@
                         if (settings.ignoreClass) {
                             all_tds = all_tds.not('.'+settings.ignoreClass);
                         }
-                        all_tds.filter(':'+settings.filterExpression+'("'+q.replace(/(['"])/g, '\\$1')+'")').addClass(settings.highlightClass).closest('tr').show().addClass(settings.visibleClass); // highlight (class=alt) only the cells that match the query and show their rows
+
+                        // first match is a "global include" by default (i. e. prepended by "+"
+                        if (q[0] !== '-' && q[0] !== '+') {
+                            q = "+" + q;
+                        }
+
+                        // filter: term +term -term
+                        // executed in sequence
+                        // term = include, search only visible rows
+                        // -term = exclude, search only visible rows
+                        // +term = include, search whole table
+                        var raw_args = q.split(/[\s,]/);
+                        $.each(raw_args, function (i, v) {
+                            var t = v.replace(/^\s+|\s$/g, ''); // trim the string
+                            if (t) {
+                                if (t[0] === '-' && t.length > 1) { // exclude from visible rows
+                                    t = t.substr(1);
+                                    var visible_tds_for_removal = tbody.find('tr.' + settings.visibleClass).find('td');
+                                    if (settings.ignoreClass) {
+                                        visible_tds_for_removal = visible_tds_for_removal.not('.' + settings.ignoreClass);
+                                    }
+                                    visible_tds_for_removal.filter(':filterTableFind("' + t.replace(/(['"])/g, '\\$1') + '")').addClass(settings.highlightClass).closest('tr').hide().removeClass(settings.visibleClass); // highlight (class=alt) the cells that match the query and hide their rows
+                                } else if (t[0] === '+' && t.length > 1) { // include rows (global)
+                                    t = t.substr(1);
+                                    all_tds.filter(':filterTableFind("' + t.replace(/(['"])/g, '\\$1') + '")').addClass(settings.highlightClass).closest('tr').show().addClass(settings.visibleClass); // highlight (class=alt) only the cells that match the query and show their rows
+                                } else { // constrain visible rows
+                                    var visible_trs = tbody.find('tr.' + settings.visibleClass);
+                                    var visible_tds = visible_trs.find('td');
+                                    if (settings.ignoreClass) {
+                                        visible_tds = visible_tds.not('.' + settings.ignoreClass);
+                                    }
+                                    var matched_trs = visible_tds.filter(':filterTableFind("' + t.replace(/(['"])/g, '\\$1') + '")').addClass(settings.highlightClass).closest('tr');
+                                    visible_trs.not(matched_trs).hide().removeClass(settings.visibleClass);
+                                }
+                            }
+                        });
                     }
                 }
                 if (settings.callback) { // call the callback function
