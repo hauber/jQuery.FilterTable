@@ -286,28 +286,36 @@
                         }
                         q.bind('click', function(e) { // bind the click event to it
                             e.preventDefault(); // stop the normal anchor tag behavior from happening
+
+                            // modifier key presence as boolean values: altKey, ctrlKey, shiftKey; use true is no key is required
+                            var key_add = e.altKey,
+                                key_subtract = e.shiftKey,
+                                key_add_global = key_add && key_subtract,
+                                key_start_new = true;
+
+                            // how to cope with old filter entry
                             var old_value,
-                                separator;
-                            if (e.altKey) { // remove content, can be combined with other modifiers
-                                separator = "";
+                                separator,
+                                empty;
+
+                            if (key_start_new && !key_add && !key_subtract && !key_add_global) { // remove old content
                                 old_value = "";
                             } else {
-                                old_value = filter.val();
-                                separator = old_value.slice(-1) === " " ? "" : " ";
+                                old_value = filter.val().trim();
                             }
-                            if (e.ctrlKey) { // subtract
-                                if (old_value.trim().length > 0) { // subtract does not work as the first entry
-                                    filter.val(old_value + separator + "-" + value + " ").focus().trigger('click'); // send the quick list value over to the filter field and trigger the event
+                            empty = old_value.length === 0;
+                            separator = empty ? "" : " ";
+
+                            // actions (the first match wins)
+                            if (key_add_global) {
+                                separator += "+";
+                            } else if (key_subtract) {
+                                separator += "-";
+                                if (empty) { // fix such that subtract will work also as first entry
+                                    old_value = ".";
                                 }
-                            } else if (e.shiftKey) { // add global
-                                filter.val(old_value + separator + "+" + value + " ").focus().trigger('click'); // send the quick list value over to the filter field and trigger the event
-                            } else {
-                                if (old_value.length === 0) {
-                                    filter.val(value + " ").focus().trigger('click'); // send the quick list value over to the filter field and trigger the event
-                                } else { // append
-                                    filter.val(old_value + separator + value + " ").focus().trigger('click'); // send the quick list value over to the filter field and trigger the event
                                 }
-                            }
+                            filter.val(old_value + separator + value + " ").focus().trigger('click');
                         });
                         quicks.append(q); // add the quick list link to the quick list groups container
                     }); // each quick list item
