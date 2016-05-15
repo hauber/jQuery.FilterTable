@@ -188,7 +188,7 @@
                             all_tds = all_tds.not('.'+settings.ignoreClass);
                         }
 
-                        // first match is a "global include" by default (i. e. prepended by "+"
+                        // first match is a "global include" by default (i. e. prepended by "+")
                         if (q[0] !== '-' && q[0] !== '+') {
                             q = "+" + q;
                         }
