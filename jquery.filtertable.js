@@ -149,7 +149,7 @@
                         $.each(raw_args, function (i, v) {
                         var t = v.trim();
                             if (t) {
-                            if (i == 0) { // first match is a "global include" by default (i. e. prepended by "+")
+                            if (i === 0) { // first match is a "global include" by default (i. e. prepended by "+")
                                 if (!t.match(/^[+-]/)) {
                                     t = "+" + t;
                                 }
@@ -164,7 +164,7 @@
                             // console.log(t + " -[1]-> " + filterArgument);
                             var filterExpression = ':filterTableFind("' + filterArgumentAsString + '")'; // replaced by filterFunction
                             var filterFunction = function (i, el) {
-                                var regexPattern = "^/(.+)/(\w*)$";
+                                var regexPattern = /^\/(.+)\/(\w*)$/;
                                 var isRegex = filterArgument.match(regexPattern);
                                 var checker;
                                 if (isRegex) {
