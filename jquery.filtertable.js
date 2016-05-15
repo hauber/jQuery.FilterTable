@@ -286,7 +286,28 @@
                         }
                         q.bind('click', function(e) { // bind the click event to it
                             e.preventDefault(); // stop the normal anchor tag behavior from happening
-                            filter.val(value).focus().trigger('click'); // send the quick list value over to the filter field and trigger the event
+                            var old_value,
+                                separator;
+                            if (e.altKey) { // remove content, can be combined with other modifiers
+                                separator = "";
+                                old_value = "";
+                            } else {
+                                old_value = filter.val();
+                                separator = old_value.slice(-1) === " " ? "" : " ";
+                            }
+                            if (e.ctrlKey) { // subtract
+                                if (old_value.trim().length > 0) { // subtract does not work as the first entry
+                                    filter.val(old_value + separator + "-" + value + " ").focus().trigger('click'); // send the quick list value over to the filter field and trigger the event
+                                }
+                            } else if (e.shiftKey) { // add global
+                                filter.val(old_value + separator + "+" + value + " ").focus().trigger('click'); // send the quick list value over to the filter field and trigger the event
+                            } else {
+                                if (old_value.length === 0) {
+                                    filter.val(value + " ").focus().trigger('click'); // send the quick list value over to the filter field and trigger the event
+                                } else { // append
+                                    filter.val(old_value + separator + value + " ").focus().trigger('click'); // send the quick list value over to the filter field and trigger the event
+                                }
+                            }
                         });
                         quicks.append(q); // add the quick list link to the quick list groups container
                     }); // each quick list item
