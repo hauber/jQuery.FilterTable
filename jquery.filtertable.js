@@ -15,11 +15,9 @@
         jmajor = parseFloat(jversion[0]),
         jminor = parseFloat(jversion[1]);
     if (jmajor < 2 && jminor < 8) { // build the pseudo selector for jQuery < 1.8
-        $.expr[':'].filterTableFind = jQuery.expr.createPseudo(function(arg) {
-            return function(el) {
-                return new RegExp(arg, 'i').test($(el).text());
+        $.expr[':'].filterTableFind = function(a, i, m) { // build the case insensitive filtering functionality as a pseudo-selector expression
+            return $(a).text().toUpperCase().indexOf(m[3].toUpperCase()) >= 0;
             };
-        });
         $.expr[':'].filterTableFindAny = function(a, i, m) { // build the case insensitive all-words filtering functionality as a pseudo-selector expression
             // build an array of each non-falsey value passed
             var raw_args = m[3].split(/[\s,]/),
@@ -72,7 +70,7 @@
     } else { // build the pseudo selector for jQuery >= 1.8
         $.expr[':'].filterTableFind = jQuery.expr.createPseudo(function(arg) {
             return function(el) {
-                return $(el).text().toUpperCase().indexOf(arg.toUpperCase()) >= 0;
+                return new RegExp(arg, 'i').test($(el).text());
             };
         });
         $.expr[':'].filterTableFindAny = jQuery.expr.createPseudo(function(arg) {
