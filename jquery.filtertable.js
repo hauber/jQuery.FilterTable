@@ -11,66 +11,18 @@
  * @license MIT
  */
 (function($) {
-    var jversion = $.fn.jquery.split('.'),
-        jmajor = parseFloat(jversion[0]),
-        jminor = parseFloat(jversion[1]);
-    if (jmajor < 2 && jminor < 8) { // build the pseudo selector for jQuery < 1.8
-        $.expr[':'].filterTableFind = function(a, i, m) { // build the case insensitive filtering functionality as a pseudo-selector expression
-            return $(a).text().toUpperCase().indexOf(m[3].toUpperCase()) >= 0;
-            };
-        $.expr[':'].filterTableFindAny = function(a, i, m) { // build the case insensitive all-words filtering functionality as a pseudo-selector expression
-            // build an array of each non-falsey value passed
-            var raw_args = m[3].split(/[\s,]/),
-                args = [];
-            $.each(raw_args, function(j, v) {
-                var t = v.replace(/^\s+|\s$/g, '');
-                if (t) {
-                    args.push(t);
-                }
-            });
-            // if there aren't any non-falsey values to search for, abort
-            if (!args.length) {
-                return false;
+    $.expr[':'].filterTableFind = jQuery.expr.createPseudo(function (arg) {
+        return function (el) {
+            var regexPattern = "^/(.+)/(\w*)$";
+            var isRegex = arg.match(regexPattern);
+            var checker;
+            if (isRegex) {
+                checker = new RegExp(isRegex[1], isRegex[2]);
+            } else {
+                checker = new RegExp(arg, 'i');
             }
-            return function(a) {
-                var found = false;
-                $.each(args, function(j, v) {
-                    if ($(a).text().toUpperCase().indexOf(v.toUpperCase()) >= 0) {
-                        found = true;
-                        return false;
-                    }
-                });
-                return found;
-            };
-        };
-        $.expr[':'].filterTableFindAll = function(a, i, m) { // build the case insensitive all-words filtering functionality as a pseudo-selector expression
-            // build an array of each non-falsey value passed
-            var raw_args = m[3].split(/[\s,]/),
-                args = [];
-            $.each(raw_args, function(j, v) {
-                var t = v.replace(/^\s+|\s$/g, '');
-                if (t) {
-                    args.push(t);
-                }
-            });
-            // if there aren't any non-falsey values to search for, abort
-            if (!args.length) {
-                return false;
-            }
-            return function(a) {
-                var found = 0; // how many terms were found?
-                $.each(args, function(j, v) {
-                    if ($(a).text().toUpperCase().indexOf(v.toUpperCase()) >= 0) {
-                        found++; // found another term
-                    }
-                });
-                return found === args.length; // did we find all of them in this cell?
-            };
-        };
-    } else { // build the pseudo selector for jQuery >= 1.8
-        $.expr[':'].filterTableFind = jQuery.expr.createPseudo(function(arg) {
-            return function(el) {
-                return new RegExp(arg, 'i').test($(el).text());
+            // console.log(arg + " -[2]-> " + checker);
+            return checker.test($(el).text());
             };
         });
         $.expr[':'].filterTableFindAny = jQuery.expr.createPseudo(function(arg) {
@@ -122,7 +74,7 @@
                 return found === args.length; // did we find all of them in this cell?
             };
         });
-    }
+
     $.fn.filterTable = function(options) { // define the filterTable plugin
         var defaults = { // start off with some default settings
                 autofocus:         false,               // make the filter input field autofocused (not recommended for accessibility)
@@ -188,11 +140,6 @@
                             all_tds = all_tds.not('.'+settings.ignoreClass);
                         }
 
-                        // first match is a "global include" by default (i. e. prepended by "+")
-                        if (q[0] !== '-' && q[0] !== '+') {
-                            q = "+" + q;
-                        }
-
                         // filter: term +term -term
                         // executed in sequence
                         // term = include, search only visible rows
@@ -200,25 +147,50 @@
                         // +term = include, search whole table
                         var raw_args = q.split(/[\s,]/);
                         $.each(raw_args, function (i, v) {
-                            var t = v.replace(/^\s+|\s$/g, ''); // trim the string
+                        var t = v.trim();
                             if (t) {
-                                if (t[0] === '-' && t.length > 1) { // exclude from visible rows
-                                    t = t.substr(1);
+                            if (i == 0) { // first match is a "global include" by default (i. e. prepended by "+")
+                                if (!t.match(/^[+-]/)) {
+                                    t = "+" + t;
+                                }
+                            }
+                            var filterArgument = t;
+                            var prefix = "";
+                            if (filterArgument.match(/^[+-]/)) {
+                                prefix = filterArgument[0];
+                                filterArgument = filterArgument.substr(1);
+                            }
+                            var filterArgumentAsString = filterArgument.replace(/(['"])/g, '\\$1');
+                            // console.log(t + " -[1]-> " + filterArgument);
+                            var filterExpression = ':filterTableFind("' + filterArgumentAsString + '")'; // replaced by filterFunction
+                            var filterFunction = function (i, el) {
+                                var regexPattern = "^/(.+)/(\w*)$";
+                                var isRegex = filterArgument.match(regexPattern);
+                                var checker;
+                                if (isRegex) {
+                                    checker = new RegExp(isRegex[1], isRegex[2]);
+                                } else {
+                                    checker = new RegExp(filterArgument, 'i');
+                                }
+                                // console.log(filterArgument + " -[2]-> " + checker);
+                                return checker.test($(el).text());
+                            };
+                            if (prefix === '-' && filterArgument.length > 0) { // exclude from visible rows
                                     var visible_tds_for_removal = tbody.find('tr.' + settings.visibleClass).find('td');
                                     if (settings.ignoreClass) {
                                         visible_tds_for_removal = visible_tds_for_removal.not('.' + settings.ignoreClass);
                                     }
-                                    visible_tds_for_removal.filter(':filterTableFind("' + t.replace(/(['"])/g, '\\$1') + '")').addClass(settings.highlightClass).closest('tr').hide().removeClass(settings.visibleClass); // highlight (class=alt) the cells that match the query and hide their rows
-                                } else if (t[0] === '+' && t.length > 1) { // include rows (global)
-                                    t = t.substr(1);
-                                    all_tds.filter(':filterTableFind("' + t.replace(/(['"])/g, '\\$1') + '")').addClass(settings.highlightClass).closest('tr').show().addClass(settings.visibleClass); // highlight (class=alt) only the cells that match the query and show their rows
+                                visible_tds_for_removal.filter(filterFunction).addClass(settings.highlightClass).closest('tr').hide().removeClass(settings.visibleClass);
+                            } else if (prefix === '+' && filterArgument.length > 0) { // include rows (global)
+                                // TODO: exclude settings.ignoreClass
+                                all_tds.filter(filterFunction).addClass(settings.highlightClass).closest('tr').show().addClass(settings.visibleClass);
                                 } else { // constrain visible rows
                                     var visible_trs = tbody.find('tr.' + settings.visibleClass);
                                     var visible_tds = visible_trs.find('td');
                                     if (settings.ignoreClass) {
                                         visible_tds = visible_tds.not('.' + settings.ignoreClass);
                                     }
-                                    var matched_trs = visible_tds.filter(':filterTableFind("' + t.replace(/(['"])/g, '\\$1') + '")').addClass(settings.highlightClass).closest('tr');
+                                var matched_trs = visible_tds.filter(filterFunction).addClass(settings.highlightClass).closest('tr');
                                     visible_trs.not(matched_trs).hide().removeClass(settings.visibleClass);
                                 }
                             }
@@ -280,9 +252,13 @@
                     quicks = settings.quickListGroupTag ? $('<'+settings.quickListGroupTag+' />') : container;
                     $.each(settings.quickList, function(index, value) { // for each quick list item...
                         var q = $('<'+settings.quickListTag+' class="'+settings.quickListClass+'" />'); // build the quick list item link
-                        q.text(hsc(value)); // add the item's text
+                        var screen = settings.quickList.fullName.get(value);
+                        var processing = settings.quickList.regex.get(value);
+                        var tooltip = settings.quickList.tooltip.get(value);
+                        q.text(hsc(screen)); // add the item's text
                         if (q[0].nodeName === 'A') {
                             q.attr('href', '#'); // add a (worthless) href to the item if it's an anchor tag so that it gets the browser's link treatment
+                            q.attr('title', tooltip);
                         }
                         q.bind('click', function(e) { // bind the click event to it
                             e.preventDefault(); // stop the normal anchor tag behavior from happening
@@ -315,7 +291,7 @@
                                     old_value = ".";
                                 }
                                 }
-                            filter.val(old_value + separator + value + " ").focus().trigger('click');
+                            filter.val(old_value + separator + processing + " ").focus().trigger('click');
                         });
                         quicks.append(q); // add the quick list link to the quick list groups container
                     }); // each quick list item
